@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Prediction</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0;
+        }
+
+        form {
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        input[type="file"] {
+            background-color: #1e1e1e;
+            color: #ffffff;
+            border: 1px solid #ffffff;
+            border-radius: 5px;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+        }
+
+        button {
+            background-color: #6200ea;
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #3700b3;
+        }
+
+        #result {
+            display: none;
+            text-align: center;
+        }
+
+        img {
+            max-width: 300px;
+            margin-top: 1rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        #predicted-class,
+        #confidence {
+            margin: 0.5rem 0;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Image Prediction</h1>
+    <h3>Upload the image or paste it from the clipboard</h3>
+    <form id="upload-form" enctype="multipart/form-data">
+        <input type="file" id="image" name="image" accept="image/*">
+        <button type="submit">Predict</button>
+    </form>
+    <div id="result">
+        <p id="predicted-class"></p>
+        <p id="confidence"></p>
+        <img id="uploaded-image" alt="Uploaded Image">
+    </div>
+
+    <script>
+        const form = document.getElementById('upload-form');
+        const imageInput = document.getElementById('image');
+
+        // Handle form submission
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData(form);
+            const response = await fetch('/predict', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (response.ok) {
+                document.getElementById('result').style.display = 'block';
+                document.getElementById('predicted-class').innerText = `Class: ${data.predicted_class}`;
+                document.getElementById('confidence').innerText = `Confidence: ${(data.confidence * 100).toFixed(2)}%`;
+                const file = document.getElementById('image').files[0];
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    document.getElementById('uploaded-image').src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                alert(data.error);
+            }
+        });
+
+        // Handle pasting images
+        document.addEventListener('paste', (event) => {
+            const items = event.clipboardData.items;
+            for (let item of items) {
+                if (item.type.startsWith('image/')) {
+                    const blob = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const base64Image = e.target.result;
+                        const img = new Image();
+                        img.src = base64Image;
+                        document.getElementById('uploaded-image').src = base64Image;
+                        document.getElementById('result').style.display = 'block';
+                    };
+                    reader.readAsDataURL(blob);
+
+                    // Create a FormData object and append the image
+                    const formData = new FormData();
+                    formData.append('image', blob);
+
+                    // Automatically submit for prediction
+                    fetch('/predict', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.predicted_class) {
+                                document.getElementById('predicted-class').innerText = `Class: ${data.predicted_class}`;
+                                document.getElementById('confidence').innerText = `Confidence: ${(data.confidence * 100).toFixed(2)}%`;
+                            } else {
+                                alert(data.error);
+                            }
+                        });
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
